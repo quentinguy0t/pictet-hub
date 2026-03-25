@@ -295,7 +295,12 @@ Règles strictes :
     const data=await res.json();
     const raw=data.content.find(b=>b.type==='text')?.text||'';
     let parsed;
-    try { parsed=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    try {
+      const clean = raw.replace(/```json|```/g,'').trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('no JSON found');
+      parsed = JSON.parse(jsonMatch[0]);
+    }
     catch(e){ throw new Error('Format JSON invalide. Réessaie.'); }
     renderBrief(parsed);
     renderCalendar(parsed.calendar||[]);
