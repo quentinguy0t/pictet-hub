@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pictet Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:#f5f2eb; --surface:#fdfcf9; --border:#ddd9cf; --border2:#e8e4db;
+  --text:#1a1916; --muted:#8a8578; --accent:#1a3a5c; --gold:#8a6d3b;
+  --pos:#2d6a4f; --neg:#9b2335; --warn:#8a6d3b;
+  --ff-serif:'Libre Baskerville',Georgia,serif;
+  --ff-sans:'IBM Plex Sans',sans-serif;
+  --ff-mono:'IBM Plex Mono',monospace;
+}
+body { background:var(--bg); color:var(--text); font-family:var(--ff-sans); font-size:14px; line-height:1.6; min-height:100vh; }
+
+header { background:var(--accent); padding:0 40px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:50; }
+.logo { font-family:var(--ff-serif); font-size:17px; color:#f5f2eb; }
+.logo em { color:#c9a84c; font-style:normal; }
+.header-meta { display:flex; align-items:center; gap:24px; }
+#clock,#date-disp { font-family:var(--ff-mono); font-size:12px; color:rgba(245,242,235,0.6); letter-spacing:0.5px; }
+
+.layout { display:grid; grid-template-columns:1fr 320px; min-height:calc(100vh - 56px); }
+.main-col { border-right:1px solid var(--border); display:flex; flex-direction:column; }
+.side-col { display:flex; flex-direction:column; }
+
+.section { padding:26px 36px; border-bottom:1px solid var(--border); }
+.section-title { font-family:var(--ff-mono); font-size:9px; letter-spacing:2.5px; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:12px; }
+.section-title::after { content:''; flex:1; height:1px; background:var(--border2); }
+
+/* generate */
+.gen-bar { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+.btn-generate { font-family:var(--ff-mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:9px 22px; background:var(--accent); color:#f5f2eb; border:none; cursor:pointer; border-radius:2px; transition:opacity .15s; display:flex; align-items:center; gap:8px; }
+.btn-generate:hover { opacity:.88; }
+.btn-generate:disabled { opacity:.4; cursor:not-allowed; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spinner { width:13px; height:13px; border:2px solid rgba(245,242,235,.3); border-top-color:#f5f2eb; border-radius:50%; animation:spin .7s linear infinite; display:none; }
+.btn-generate.loading .spinner { display:block; }
+.gen-hint { font-family:var(--ff-mono); font-size:10px; color:var(--muted); }
+
+/* brief */
+#brief-output { display:none; flex-direction:column; }
+#brief-output.visible { display:flex; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+.brief-sec { padding:14px 0; border-bottom:1px solid var(--border2); animation:fadeUp .3s ease both; }
+.brief-sec:last-of-type { border-bottom:none; }
+.brief-sec-lbl { font-family:var(--ff-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:10px; }
+.brief-items { display:flex; flex-direction:column; gap:8px; }
+.brief-item { display:grid; grid-template-columns:20px 1fr; align-items:baseline; }
+.brief-dot { width:4px; height:4px; border-radius:50%; background:var(--accent); margin-top:8px; }
+.brief-text { font-size:13.5px; line-height:1.55; color:var(--text); }
+.tag { display:inline-block; font-family:var(--ff-mono); font-size:9px; letter-spacing:1px; text-transform:uppercase; padding:1px 6px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+.tag-haussier  { background:#d4edda; color:var(--pos); }
+.tag-baissier  { background:#f8d7da; color:var(--neg); }
+.tag-neutre    { background:#e8e4db; color:var(--muted); }
+.tag-attention { background:#fff3cd; color:var(--warn); }
+.brief-empty { padding:32px 0; text-align:center; color:var(--muted); font-family:var(--ff-mono); font-size:11px; line-height:2.2; }
+.brief-ts { font-family:var(--ff-mono); font-size:10px; color:var(--muted); margin-top:14px; padding-top:12px; border-top:1px solid var(--border2); }
+
+/* calendar */
+.cal-item { display:grid; grid-template-columns:68px 20px 1fr; gap:10px; padding:11px 0; border-bottom:1px solid var(--border2); }
+.cal-item:last-child { border-bottom:none; }
+.cal-time { font-family:var(--ff-mono); font-size:11px; color:var(--muted); padding-top:2px; }
+.cal-flag { font-size:13px; padding-top:2px; }
+.cal-event { font-size:13px; color:var(--text); }
+.cal-meta { display:flex; align-items:center; gap:8px; margin-top:2px; }
+.cal-consensus { font-family:var(--ff-mono); font-size:10px; color:var(--muted); }
+.impact { display:inline-flex; gap:3px; }
+.impact-dot { width:5px; height:5px; border-radius:50%; background:var(--border); }
+.impact-dot.on { background:var(--gold); }
+.cal-hint { font-family:var(--ff-mono); font-size:10px; color:var(--muted); padding:8px 0; }
+
+/* journal */
+.journal-inner { flex:1; padding:22px 24px 20px; display:flex; flex-direction:column; overflow-y:auto; }
+.date-tabs { display:flex; gap:4px; margin-bottom:16px; overflow-x:auto; padding-bottom:2px; }
+.date-tab { font-family:var(--ff-mono); font-size:9px; letter-spacing:.5px; padding:4px 9px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; border-radius:2px; white-space:nowrap; transition:all .12s; }
+.date-tab:hover { border-color:var(--accent); color:var(--accent); }
+.date-tab.active { background:var(--accent); color:#f5f2eb; border-color:var(--accent); }
+.j-fields { display:flex; flex-direction:column; gap:13px; }
+.j-field label { display:block; font-family:var(--ff-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.j-field textarea { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:2px; color:var(--text); font-family:var(--ff-sans); font-size:12.5px; line-height:1.6; padding:8px 11px; resize:vertical; transition:border-color .12s; min-height:52px; }
+.j-field textarea:focus { outline:none; border-color:var(--accent); }
+.j-field textarea::placeholder { color:var(--muted); }
+.j-actions { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:13px; border-top:1px solid var(--border2); }
+.btn-save { font-family:var(--ff-mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:7px 18px; background:var(--accent); color:#f5f2eb; border:none; cursor:pointer; border-radius:2px; transition:opacity .12s; }
+.btn-save:hover { opacity:.85; }
+.btn-del { font-family:var(--ff-mono); font-size:10px; color:var(--muted); background:none; border:none; cursor:pointer; transition:color .12s; }
+.btn-del:hover { color:var(--neg); }
+.save-ok { font-family:var(--ff-mono); font-size:10px; color:var(--pos); opacity:0; transition:opacity .25s; }
+.save-ok.show { opacity:1; }
+
+/* sources */
+.sources { background:var(--surface); border-top:1px solid var(--border); padding:11px 40px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+.sources-lbl { font-family:var(--ff-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+.src-link { font-family:var(--ff-mono); font-size:10px; color:var(--muted); text-decoration:none; transition:color .12s; }
+.src-link:hover { color:var(--accent); }
+
+/* modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(26,25,22,.5); z-index:200; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:30px; width:400px; max-width:90vw; }
+.modal h2 { font-family:var(--ff-serif); font-size:17px; margin-bottom:8px; }
+.modal p { font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.6; }
+.modal input { width:100%; font-family:var(--ff-mono); font-size:12px; padding:10px 12px; border:1px solid var(--border); border-radius:2px; background:var(--bg); color:var(--text); margin-bottom:14px; }
+.modal input:focus { outline:none; border-color:var(--accent); }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+.btn-m { font-family:var(--ff-mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:8px 18px; border-radius:2px; border:none; cursor:pointer; transition:opacity .12s; }
+.btn-m:hover { opacity:.85; }
+.btn-m.p { background:var(--accent); color:#f5f2eb; }
+.btn-m.s { background:var(--border2); color:var(--muted); }
+.modal-note { font-family:var(--ff-mono); font-size:10px; color:var(--muted); margin-top:12px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Clé API Anthropic</h2>
+    <p>Utilisée pour générer le briefing via Claude. Stockée uniquement dans ce navigateur, jamais transmise ailleurs.</p>
+    <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." />
+    <div class="modal-actions">
+      <button class="btn-m s" onclick="closeModal()">Annuler</button>
+      <button class="btn-m p" onclick="saveKey()">Enregistrer</button>
+    </div>
+    <div class="modal-note">
+      Clé gratuite sur console.anthropic.com → API Keys<br>
+      Coût estimé : ~$0.01 par génération
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">Pictet <em>Hub</em></div>
+  <div class="header-meta">
+    <span id="date-disp"></span>
+    <span id="clock"></span>
+    <button class="btn-m s" style="font-size:9px;padding:5px 12px;" onclick="openModal()">Clé API</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="main-col">
+
+    <div class="section" style="flex:1">
+      <div class="section-title">Briefing du jour</div>
+      <div class="gen-bar">
+        <button class="btn-generate" id="gen-btn" onclick="generateBrief()">
+          <div class="spinner"></div>
+          <span class="btn-label">Générer le briefing</span>
+        </button>
+        <span class="gen-hint" id="gen-hint">Lance le briefing pour obtenir l'actualité du jour</span>
+      </div>
+      <div id="brief-output"></div>
+      <div class="brief-empty" id="brief-placeholder">
+        Clique sur "Générer" pour obtenir une synthèse<br>
+        macro · géopolitique · marchés · banques centrales<br><br>
+        <span style="color:var(--border)">——</span><br><br>
+        Contenu généré par Claude · sources officielles uniquement
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Calendrier économique</div>
+      <div id="cal-grid"><div class="cal-hint">Lance le briefing pour charger le calendrier du jour.</div></div>
+      <div style="margin-top:12px;">
+        <a href="https://www.investing.com/economic-calendar/" target="_blank" class="src-link" style="font-size:11px;">→ Calendrier complet Investing.com</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="side-col">
+    <div class="section" style="padding-bottom:16px;border-bottom:none;">
+      <div class="section-title">Journal de bord</div>
+    </div>
+    <div class="journal-inner">
+      <div class="date-tabs" id="date-tabs"></div>
+      <div class="j-fields">
+        <div class="j-field">
+          <label>Macro overnight</label>
+          <textarea id="j-macro" rows="3" placeholder="Asie, Europe, USD..."></textarea>
+        </div>
+        <div class="j-field">
+          <label>Publications du jour</label>
+          <textarea id="j-pub" rows="2" placeholder="CPI, NFP, discours Fed..."></textarea>
+        </div>
+        <div class="j-field">
+          <label>Vue Pictet</label>
+          <textarea id="j-pictet" rows="2" placeholder="Positionnement, thèse macro..."></textarea>
+        </div>
+        <div class="j-field">
+          <label>Questions morning call</label>
+          <textarea id="j-q" rows="3" placeholder="1. &#10;2. "></textarea>
+        </div>
+        <div class="j-field">
+          <label>Notes personnelles</label>
+          <textarea id="j-notes" rows="3" placeholder="Ce que j'ai appris..."></textarea>
+        </div>
+      </div>
+      <div class="j-actions">
+        <button class="btn-del" onclick="clearJournal()">Effacer</button>
+        <span class="save-ok" id="save-ok">Sauvegardé</span>
+        <button class="btn-save" onclick="saveJournal()">Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sources">
+  <span class="sources-lbl">Sources</span>
+  <a class="src-link" href="https://www.ft.com/markets" target="_blank">Financial Times</a>
+  <a class="src-link" href="https://www.reuters.com/markets/" target="_blank">Reuters</a>
+  <a class="src-link" href="https://www.bloomberg.com/markets" target="_blank">Bloomberg</a>
+  <a class="src-link" href="https://am.pictet.com/ca/en/institutions/investment-views" target="_blank">Pictet AM Views</a>
+  <a class="src-link" href="https://www.ecb.europa.eu/press/pr/date/html/index.en.html" target="_blank">BCE</a>
+  <a class="src-link" href="https://www.federalreserve.gov/newsevents.htm" target="_blank">Fed</a>
+  <a class="src-link" href="https://www.bis.org/cbspeeches/index.htm" target="_blank">BIS</a>
+</div>
+
+<script>
+const DAYS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+function tick() {
+  const n=new Date();
+  document.getElementById('clock').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  document.getElementById('date-disp').textContent=`${DAYS[n.getDay()]} ${n.getDate()} ${MONTHS[n.getMonth()]} ${n.getFullYear()}`;
+}
+tick(); setInterval(tick,1000);
+
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function saveKey() {
+  const v=document.getElementById('api-key-input').value.trim();
+  if(!v) return;
+  localStorage.setItem('pictet_apikey',v);
+  closeModal();
+  document.getElementById('gen-hint').textContent='Clé enregistrée — prêt à générer.';
+}
+function getKey() { return localStorage.getItem('pictet_apikey')||''; }
+window.addEventListener('load',()=>{ if(!getKey()) document.getElementById('gen-hint').textContent='Clé API requise → bouton "Clé API" en haut à droite.'; });
+
+async function generateBrief() {
+  const key=getKey();
+  if(!key){ openModal(); return; }
+  const btn=document.getElementById('gen-btn');
+  btn.classList.add('loading'); btn.disabled=true;
+  document.getElementById('brief-placeholder').style.display='none';
+  document.getElementById('brief-output').classList.remove('visible');
+  document.getElementById('gen-hint').textContent='Génération en cours...';
+  const today=new Date();
+  const dateStr=`${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+  const PROMPT=`Tu es un analyste S&T senior. Aujourd'hui : ${dateStr}.
+
+Génère un morning briefing factuel pour un stagiaire chez Pictet Montréal (Sales & Trading).
+RÈGLE ABSOLUE : n'inclus que des faits que tu connais avec certitude. Zéro invention.
+Si un fait récent est incertain, ne l'inclus pas. Préfère moins d'items mais tous vrais.
+
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
+
+{"sections":[{"label":"Macro & Économie","items":[{"text":"...","tag":"neutre|haussier|baissier|attention"}]},{"label":"Géopolitique & Risques","items":[...]},{"label":"Banques Centrales","items":[...]},{"label":"À surveiller","items":[...]}],"calendar":[{"time":"HH:MM","flag":"🇺🇸","event":"...","consensus":"...","impact":1}],"generated_at":"${dateStr}"}
+
+Règles :
+- 3-4 items par section, 1-2 phrases max chacun
+- Français ou anglais selon la langue naturelle de l'info
+- tag: haussier=bon pour marchés, baissier=mauvais, attention=risque, neutre=info
+- calendar: uniquement vraies publications du jour avec heure ET certaine. Si incertain → tableau vide []
+- Sources: Fed, BCE, BNS, BIS, FMI, Eurostat, BLS, StatCan, données officielles uniquement`;
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:PROMPT}]})
+    });
+    if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`HTTP ${res.status}`); }
+    const data=await res.json();
+    const raw=data.content.find(b=>b.type==='text')?.text||'';
+    let parsed;
+    try { parsed=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch(e){ throw new Error('Format JSON invalide. Réessaie.'); }
+    renderBrief(parsed);
+    renderCalendar(parsed.calendar||[]);
+    const t=new Date();
+    document.getElementById('gen-hint').textContent=`Généré à ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+  } catch(err) {
+    document.getElementById('brief-placeholder').style.display='block';
+    document.getElementById('brief-placeholder').innerHTML=`<span style="color:var(--neg)">Erreur : ${err.message}</span>`;
+    document.getElementById('gen-hint').textContent='Erreur lors de la génération.';
+  }
+  btn.classList.remove('loading'); btn.disabled=false;
+}
+
+function renderBrief(data) {
+  const out=document.getElementById('brief-output');
+  out.innerHTML=data.sections.map((s,i)=>`
+    <div class="brief-sec" style="animation-delay:${i*.07}s">
+      <div class="brief-sec-lbl">${s.label}</div>
+      <div class="brief-items">${s.items.map(item=>`
+        <div class="brief-item">
+          <div><div class="brief-dot"></div></div>
+          <div class="brief-text"><span class="tag tag-${item.tag}">${item.tag}</span>${item.text}</div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('')+`<div class="brief-ts">Généré le ${data.generated_at} · Claude · Données officielles uniquement</div>`;
+  out.classList.add('visible');
+}
+
+function renderCalendar(cal) {
+  const grid=document.getElementById('cal-grid');
+  if(!cal.length){ grid.innerHTML='<div class="cal-hint">Aucune publication majeure identifiée avec certitude pour aujourd\'hui.</div>'; return; }
+  grid.innerHTML=cal.map(e=>{
+    const dots=[1,2,3].map(i=>`<span class="impact-dot ${i<=e.impact?'on':''}"></span>`).join('');
+    return `<div class="cal-item">
+      <span class="cal-time">${e.time} ET</span>
+      <span class="cal-flag">${e.flag}</span>
+      <div><div class="cal-event">${e.event}</div><div class="cal-meta"><span class="impact">${dots}</span><span class="cal-consensus">${e.consensus}</span></div></div>
+    </div>`;
+  }).join('');
+}
+
+const JFIELDS=['macro','pub','pictet','q','notes'];
+const JPX='pictet_j_';
+function todayKey(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function storedDates(){const o=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith(JPX+'e_'))o.push(k.replace(JPX+'e_',''));}return o.sort().reverse();}
+function loadEntry(dk){const raw=localStorage.getItem(JPX+'e_'+dk);const e=raw?JSON.parse(raw):{};JFIELDS.forEach(f=>{const el=document.getElementById('j-'+f);if(el)el.value=e[f]||'';});document.querySelectorAll('.date-tab').forEach(t=>t.classList.toggle('active',t.dataset.date===dk));}
+function renderTabs(){const today=todayKey();const dates=storedDates();if(!dates.includes(today))dates.unshift(today);document.getElementById('date-tabs').innerHTML=dates.slice(0,7).map(d=>{const lbl=d===today?"Aujourd'hui":d.slice(5);return`<button class="date-tab${d===today?' active':''}" data-date="${d}" onclick="loadEntry('${d}')">${lbl}</button>`;}).join('');}
+function saveJournal(){const key=todayKey();const e={};JFIELDS.forEach(f=>{const el=document.getElementById('j-'+f);if(el)e[f]=el.value;});localStorage.setItem(JPX+'e_'+key,JSON.stringify(e));renderTabs();const s=document.getElementById('save-ok');s.classList.add('show');setTimeout(()=>s.classList.remove('show'),2000);}
+function clearJournal(){if(!confirm("Effacer les notes d'aujourd'hui ?"))return;JFIELDS.forEach(f=>{const el=document.getElementById('j-'+f);if(el)el.value='';});localStorage.removeItem(JPX+'e_'+todayKey());renderTabs();}
+JFIELDS.forEach(f=>{const el=document.getElementById('j-'+f);if(el)el.addEventListener('input',()=>{clearTimeout(el._t);el._t=setTimeout(saveJournal,1500);});});
+renderTabs(); loadEntry(todayKey());
+</script>
+</body>
+</html>
