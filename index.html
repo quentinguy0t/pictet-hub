@@ -259,37 +259,26 @@ async function generateBrief() {
   document.getElementById('gen-hint').textContent='Génération en cours...';
   const today=new Date();
   const dateStr=`${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
-  const PROMPT=`Tu es un analyste S&T senior chez Pictet Montréal. Aujourd'hui : ${dateStr}.
+  const PROMPT=`Today is ${dateStr}. Generate a morning briefing for a Sales & Trading intern at Pictet Montreal (wealth & asset management, CHF reporting, thematic funds: water, clean energy, robotics, EM).
 
-Génère un morning briefing de haute qualité pour un stagiaire en Sales & Trading qui arrive au bureau dans 30 minutes.
+Return ONLY a valid JSON object. No text before or after. No markdown. No backticks. Start your response with { and end with }.
 
-RÈGLE ABSOLUE : uniquement des faits certains. Zéro invention. Si incertain → ne pas inclure.
+Required format:
+{"sections":[{"label":"Macro & Markets","items":[{"text":"concise factual insight","tag":"bullish","url":"https://..."}]},{"label":"Central Banks & Rates","items":[{"text":"...","tag":"bearish","url":"https://..."}]},{"label":"Geopolitics & Risks","items":[{"text":"...","tag":"attention","url":"https://..."}]},{"label":"Relevant for Pictet","items":[{"text":"...","tag":"neutral","url":"https://..."}]}],"generated_at":"${dateStr}"}
 
-Contexte du lecteur : étudiant franco-canadien en finance, connaît les marchés, stage chez Pictet (wealth & asset management, ~$800Mrd AuM, spécialiste thématiques, EM, multi-asset). Il veut comprendre CE QUI COMPTE VRAIMENT ce matin, pas des généralités.
-
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
-
-{"sections":[
-  {"label":"Macro & Marchés","items":[{"text":"...","tag":"...","url":"..."}]},
-  {"label":"Banques Centrales & Taux","items":[{"text":"...","tag":"...","url":"..."}]},
-  {"label":"Géopolitique & Risques","items":[{"text":"...","tag":"...","url":"..."}]},
-  {"label":"Pertinent pour Pictet","items":[{"text":"...","tag":"...","url":"..."}]}
-],"generated_at":"${dateStr}"}
-
-Règles strictes :
-- 3-4 items par section, phrases précises et informatives (pas de banalités)
-- Chaque item doit avoir une URL vers un article ou source officielle réelle et vérifiable (ft.com, reuters.com, bloomberg.com, federalreserve.gov, ecb.europa.eu, bis.org, imf.org, statcan.gc.ca, etc.)
-- Si tu n'as pas d'URL certaine pour un item, ne l'inclus pas
-- tag: "haussier" / "baissier" / "attention" / "neutre"
-- Section "Pertinent pour Pictet" : focus sur CHF, taux suisses BNS, fonds thématiques Pictet (eau, clean energy, robotics, EM), wealth management, allocations multi-asset
-- Langue : français ou anglais selon la source, mais phrases complètes et précises
-- Priorité aux infos qui BOUGENT les marchés aujourd'hui, pas aux tendances générales connues depuis des semaines`;
+Rules:
+- 3-4 items per section
+- tag values: bullish / bearish / attention / neutral
+- url: real verifiable URL from ft.com, reuters.com, bloomberg.com, federalreserve.gov, ecb.europa.eu, snb.ch, bis.org, imf.org, statcan.gc.ca only
+- Only include facts you are certain about
+- Focus on what moves markets TODAY, not general trends
+- "Relevant for Pictet" section: CHF moves, SNB policy, Pictet thematic funds performance, multi-asset allocation signals`;
 
   try {
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:PROMPT}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,system:'You are a JSON API. You only output valid JSON. Never output any text outside of the JSON object.',messages:[{role:'user',content:PROMPT}]})
     });
     if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`HTTP ${res.status}`); }
     const data=await res.json();
@@ -320,9 +309,11 @@ function renderBrief(data) {
     <div class="brief-sec" style="animation-delay:${i*.07}s">
       <div class="brief-sec-lbl">${s.label}</div>
       <div class="brief-items">${s.items.map(item=>{
+        const tagLabel = {'bullish':'haussier','bearish':'baissier','attention':'attention','neutral':'neutre'}[item.tag] || item.tag;
+        const tagClass = {'bullish':'haussier','bearish':'baissier','attention':'attention','neutral':'neutre'}[item.tag] || item.tag;
         const inner=`<div class="brief-item${item.url?' clickable':''}">
           <div><div class="brief-dot"></div></div>
-          <div class="brief-text"><span class="tag tag-${item.tag}">${item.tag}</span>${item.text}${item.url?'<span class="item-arrow"> →</span>':''}</div>
+          <div class="brief-text"><span class="tag tag-${tagClass}">${tagLabel}</span>${item.text}${item.url?'<span class="item-arrow"> →</span>':''}</div>
         </div>`;
         return item.url ? `<a href="${item.url}" target="_blank" style="text-decoration:none;color:inherit;">${inner}</a>` : inner;
       }).join('')}
