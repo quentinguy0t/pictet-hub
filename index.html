@@ -59,6 +59,10 @@ header { background:var(--accent); padding:0 40px; height:56px; display:flex; al
 .tag-attention { background:#fff3cd; color:var(--warn); }
 .brief-empty { padding:32px 0; text-align:center; color:var(--muted); font-family:var(--ff-mono); font-size:11px; line-height:2.2; }
 .brief-ts { font-family:var(--ff-mono); font-size:10px; color:var(--muted); margin-top:14px; padding-top:12px; border-top:1px solid var(--border2); }
+.brief-item.clickable { cursor:pointer; border-radius:3px; transition:background .12s; padding:2px 4px; margin:-2px -4px; }
+.brief-item.clickable:hover { background:rgba(26,58,92,0.05); }
+.item-arrow { font-size:11px; color:var(--accent); margin-left:4px; opacity:0; transition:opacity .12s; }
+.brief-item.clickable:hover .item-arrow { opacity:1; }
 
 /* calendar */
 .cal-item { display:grid; grid-template-columns:68px 20px 1fr; gap:10px; padding:11px 0; border-bottom:1px solid var(--border2); }
@@ -163,9 +167,11 @@ header { background:var(--accent); padding:0 40px; height:56px; display:flex; al
     </div>
 
     <div class="section">
-      <div class="section-title">Calendrier économique</div>
-      <div id="cal-grid"><div class="cal-hint">Lance le briefing pour charger le calendrier du jour.</div></div>
-      <div style="margin-top:12px;">
+      <div class="section-title">Calendrier économique — 5 jours</div>
+      <div style="overflow:hidden;border-radius:3px;">
+        <iframe src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=5,22,17,4,72,35&calType=week&timeZone=55&lang=2" width="100%" height="380" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0" style="display:block;border:none;"></iframe>
+      </div>
+      <div style="margin-top:8px;">
         <a href="https://www.investing.com/economic-calendar/" target="_blank" class="src-link" style="font-size:11px;">→ Calendrier complet Investing.com</a>
       </div>
     </div>
@@ -253,22 +259,31 @@ async function generateBrief() {
   document.getElementById('gen-hint').textContent='Génération en cours...';
   const today=new Date();
   const dateStr=`${DAYS[today.getDay()]} ${today.getDate()} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
-  const PROMPT=`Tu es un analyste S&T senior. Aujourd'hui : ${dateStr}.
+  const PROMPT=`Tu es un analyste S&T senior chez Pictet Montréal. Aujourd'hui : ${dateStr}.
 
-Génère un morning briefing factuel pour un stagiaire chez Pictet Montréal (Sales & Trading).
-RÈGLE ABSOLUE : n'inclus que des faits que tu connais avec certitude. Zéro invention.
-Si un fait récent est incertain, ne l'inclus pas. Préfère moins d'items mais tous vrais.
+Génère un morning briefing de haute qualité pour un stagiaire en Sales & Trading qui arrive au bureau dans 30 minutes.
+
+RÈGLE ABSOLUE : uniquement des faits certains. Zéro invention. Si incertain → ne pas inclure.
+
+Contexte du lecteur : étudiant franco-canadien en finance, connaît les marchés, stage chez Pictet (wealth & asset management, ~$800Mrd AuM, spécialiste thématiques, EM, multi-asset). Il veut comprendre CE QUI COMPTE VRAIMENT ce matin, pas des généralités.
 
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
 
-{"sections":[{"label":"Macro & Économie","items":[{"text":"...","tag":"neutre|haussier|baissier|attention"}]},{"label":"Géopolitique & Risques","items":[...]},{"label":"Banques Centrales","items":[...]},{"label":"À surveiller","items":[...]}],"calendar":[{"time":"HH:MM","flag":"🇺🇸","event":"...","consensus":"...","impact":1}],"generated_at":"${dateStr}"}
+{"sections":[
+  {"label":"Macro & Marchés","items":[{"text":"...","tag":"...","url":"..."}]},
+  {"label":"Banques Centrales & Taux","items":[{"text":"...","tag":"...","url":"..."}]},
+  {"label":"Géopolitique & Risques","items":[{"text":"...","tag":"...","url":"..."}]},
+  {"label":"Pertinent pour Pictet","items":[{"text":"...","tag":"...","url":"..."}]}
+],"generated_at":"${dateStr}"}
 
-Règles :
-- 3-4 items par section, 1-2 phrases max chacun
-- Français ou anglais selon la langue naturelle de l'info
-- tag: haussier=bon pour marchés, baissier=mauvais, attention=risque, neutre=info
-- calendar: uniquement vraies publications du jour avec heure ET certaine. Si incertain → tableau vide []
-- Sources: Fed, BCE, BNS, BIS, FMI, Eurostat, BLS, StatCan, données officielles uniquement`;
+Règles strictes :
+- 3-4 items par section, phrases précises et informatives (pas de banalités)
+- Chaque item doit avoir une URL vers un article ou source officielle réelle et vérifiable (ft.com, reuters.com, bloomberg.com, federalreserve.gov, ecb.europa.eu, bis.org, imf.org, statcan.gc.ca, etc.)
+- Si tu n'as pas d'URL certaine pour un item, ne l'inclus pas
+- tag: "haussier" / "baissier" / "attention" / "neutre"
+- Section "Pertinent pour Pictet" : focus sur CHF, taux suisses BNS, fonds thématiques Pictet (eau, clean energy, robotics, EM), wealth management, allocations multi-asset
+- Langue : français ou anglais selon la source, mais phrases complètes et précises
+- Priorité aux infos qui BOUGENT les marchés aujourd'hui, pas aux tendances générales connues depuis des semaines`;
 
   try {
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -299,13 +314,15 @@ function renderBrief(data) {
   out.innerHTML=data.sections.map((s,i)=>`
     <div class="brief-sec" style="animation-delay:${i*.07}s">
       <div class="brief-sec-lbl">${s.label}</div>
-      <div class="brief-items">${s.items.map(item=>`
-        <div class="brief-item">
+      <div class="brief-items">${s.items.map(item=>{
+        const inner=`<div class="brief-item${item.url?' clickable':''}">
           <div><div class="brief-dot"></div></div>
-          <div class="brief-text"><span class="tag tag-${item.tag}">${item.tag}</span>${item.text}</div>
-        </div>`).join('')}
+          <div class="brief-text"><span class="tag tag-${item.tag}">${item.tag}</span>${item.text}${item.url?'<span class="item-arrow"> →</span>':''}</div>
+        </div>`;
+        return item.url ? `<a href="${item.url}" target="_blank" style="text-decoration:none;color:inherit;">${inner}</a>` : inner;
+      }).join('')}
       </div>
-    </div>`).join('')+`<div class="brief-ts">Généré le ${data.generated_at} · Claude · Données officielles uniquement</div>`;
+    </div>`).join('')+`<div class="brief-ts">Généré le ${data.generated_at} · Claude · Cliquez sur chaque info pour la source</div>`;
   out.classList.add('visible');
 }
 
@@ -335,4 +352,3 @@ renderTabs(); loadEntry(todayKey());
 </script>
 </body>
 </html>
-
